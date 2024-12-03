@@ -8,24 +8,10 @@
 
 using namespace std;
 
-TNumber mulSum(const std::string& line) {
-    TNumber sum = 0;
-    std::smatch sm;
-    std::vector<TNumber> ret;
-    std::string::const_iterator searchStart(line.cbegin() );
-    while (std::regex_search(searchStart, line.cend(), sm, std::regex("mul\\((\\d|\\d{2}|\\d{3}),(\\d|\\d{2}|\\d{3})\\)"))) {
-        const TNumber p1 = std::stol(sm[1]);
-        const TNumber p2 = std::stol(sm[2]);
-        sum += p1 * p2;
-
-        searchStart = sm.suffix().first;
-    }
-    return sum;
-};
-
-TNumber mulSum2(const std::string& line) {
+std::tuple<TNumber, TNumber> mulSum(const std::string& line) {
     static bool isActive = true;
-    TNumber sum = 0;
+    TNumber sumAll = 0;
+    TNumber sumActive = 0;
     std::smatch sm;
     std::vector<TNumber> ret;
     std::string::const_iterator searchStart(line.cbegin() );
@@ -35,15 +21,19 @@ TNumber mulSum2(const std::string& line) {
             isActive = true;
         } else if (sm[0] == "don't()") {
             isActive = false;
-        } else if (isActive) {
+        } else {
             const TNumber p1 = std::stol(sm[1]);
             const TNumber p2 = std::stol(sm[2]);
-            sum += p1 * p2;
+            const TNumber prod = p1 * p2;
+            sumAll += prod;
+            if (isActive) {
+                sumActive += prod;
+            }
         }
 
         searchStart = sm.suffix().first;
     }
-    return sum;
+    return std::make_tuple(sumAll, sumActive);
 };
 
 int main(int argc, char *argv[]) {
@@ -70,8 +60,9 @@ int main(int argc, char *argv[]) {
     TNumber sum2 = 0;
     while(getline(listFile, line)) {
         if (!line.empty()) {
-            sum += mulSum(line);
-            sum2 += mulSum2(line);
+            auto [sumAll, sumActive] = mulSum(line);
+            sum += sumAll;
+            sum2 += sumActive;
         }
     }
 
