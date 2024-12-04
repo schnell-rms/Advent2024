@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -30,6 +31,20 @@ TNumber findXMAS(const std::vector<std::string>& lines,
     return findXMAS(lines, i, j, dirI, dirJ, k+1);
 }
 
+const std::vector<std::string> kMMSSkeys = {"MMSS", "MSSM", "SSMM", "SMMS"};
+
+bool isDoubleMAS(const std::vector<std::string>& lines,
+                 TNumber i, TNumber j,
+                 TNumber key)
+{
+    assert(lines[i][j] == 'A');
+
+    return  lines[i-1][j-1] == kMMSSkeys[key][0] &&
+            lines[i-1][j+1] == kMMSSkeys[key][1] &&
+            lines[i+1][j+1] == kMMSSkeys[key][2] &&
+            lines[i+1][j-1] == kMMSSkeys[key][3];
+}
+
 int main(int argc, char *argv[]) {
 
     gIS_DEBUG = argc > 2;
@@ -57,9 +72,9 @@ int main(int argc, char *argv[]) {
             lines.push_back(std::move(line));
         }
     }
-  
-    TNumber count = 0;
 
+    // Part 1:
+    TNumber count = 0;
     for (TNumber i=0; i<lines.size(); ++i) {
         for (TNumber j=0; j<lines[0].size(); ++j) {
             if (lines[i][j] == kXMAS[0]) {
@@ -79,4 +94,18 @@ int main(int argc, char *argv[]) {
 
     cout << "Total number of XMAS: " << count << endl;
 
+    // Part 2:
+    TNumber countX = 0;
+    for (TNumber i=1; i<lines.size()-1; ++i) {
+        for (TNumber j=1; j<lines[0].size()-1; ++j) {
+            if (lines[i][j] == 'A') {
+                countX +=   isDoubleMAS(lines, i, j, 0) ||
+                            isDoubleMAS(lines, i, j, 1) ||
+                            isDoubleMAS(lines, i, j, 2) ||
+                            isDoubleMAS(lines, i, j, 3);
+            }
+        }
+    }
+
+    cout << "Total number of crossed X-MAS: " << countX << endl;
 }
