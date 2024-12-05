@@ -12,23 +12,21 @@ using namespace std;
 
 using TRulesMap = std::unordered_map<TNumber, std::unordered_set<TNumber>>;
 
-bool isInOrder( const std::vector<std::vector<TNumber>> &rules,
-                TRulesMap &rulesMap,
+bool isInOrder( TRulesMap &rulesMap,
                 std::vector<TNumber> &order)
 {
-    std::unordered_map<TNumber, TNumber> orderMap;
-    for (TNumber idx = 0; idx < order.size(); idx++) {
-        orderMap[order[idx]] = idx;
-    }
-
     bool isInOrder = true;
 
-    for (auto rule: rules) {
-        auto itBefore = orderMap.find(rule[0]);
-        auto itAfter = orderMap.find(rule[1]);
-        if (itBefore != orderMap.end() && itAfter != orderMap.end()) {
-            if (itAfter->second < itBefore->second) {
-                isInOrder = false;
+    for (TNumber i=0; i<order.size(); ++i) {
+        const auto it = rulesMap.find(order[i]);
+        if (it != rulesMap.end()) {
+            for (TNumber j=0; j<i; j++) {
+                if (it->second.find(order[j]) != it->second.end()) {
+                    isInOrder = false;
+                    break;
+                }
+            }
+            if (!isInOrder) {
                 break;
             }
         }
@@ -149,16 +147,17 @@ int main(int argc, char *argv[]) {
     while(getline(listFile, line)) {
         if (!line.empty()) {
             if (isRule) {
-                rules.push_back(allNumbers(line));
+                const auto rule = allNumbers(line);
+                rulesMap[rule[0]].insert(rule[1]);
             } else {
                 auto order = allNumbers(line);
                 auto orderForTopo = order;
-                if (isInOrder(rules, rulesMap, order)) {
+                if (isInOrder(rulesMap, order)) {
                     sumInOrder += order[order.size()/2];
                 } else {
                     sumNotInOrder += order[order.size()/2];
 
-                    assert(isInOrder(rules, rulesMap, order));
+                    assert(isInOrder(rulesMap, order));
 
                     topologicalSort(rulesMap, orderForTopo);
                     sumNotInOrder_Topological += orderForTopo[orderForTopo.size()/2];
@@ -168,10 +167,6 @@ int main(int argc, char *argv[]) {
             }
         } else {
             isRule = false;
-            // Put the rules in a map
-            for (auto rule: rules) {
-                rulesMap[rule[0]].insert(rule[1]);
-            }
         }
     }
 
