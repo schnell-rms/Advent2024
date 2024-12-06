@@ -19,7 +19,38 @@ const std::vector<std::pair<TNumber, TNumber>> kDIRECTIONS = {
     std::make_pair( 0, -1)
 };
 
-void patrol(std::vector<std::string> &map, std::pair<TNumber, TNumber> pos, TNumber dirIdx) {
+
+// map of pos key , direction key
+using TVisited = std::unordered_map<TNumber, TNumber>;
+
+TNumber posKey(std::pair<TNumber, TNumber> pos) {
+    return (pos.first << 16) | pos.second;
+}
+
+std::pair<TNumber, TNumber> posFromKey(TNumber posKey) {
+    return std::make_pair(posKey >> 16, posKey & 0xFFFF);
+}
+
+TNumber dirKey(TNumber dirIdx) {
+    return 1 << dirIdx;
+}
+
+void markVisited(TVisited &visited, std::pair<TNumber, TNumber> pos, TNumber dirIdx) {
+    visited[posKey(pos)] |= dirKey(dirIdx);
+}
+
+bool isVisited(const TVisited &visited, std::pair<TNumber, TNumber> pos, TNumber dirIdx) {
+    auto it = visited.find(posKey(pos));
+    if (it != visited.end()) {
+        return it->second & dirKey(dirIdx);
+    }
+    return false;
+}
+
+// Returns:
+//  - true when a cycle is detected
+//  - false when getting out of the map
+bool patrol(std::vector<std::string> &map, TVisited &visited, std::pair<TNumber, TNumber> pos, TNumber dirIdx) {
 
     std::pair<TNumber,TNumber> dir = kDIRECTIONS[dirIdx];
 
@@ -51,6 +82,13 @@ void patrol(std::vector<std::string> &map, std::pair<TNumber, TNumber> pos, TNum
     };
 
     while (isInMap(pos)) {
+
+        if (isVisited(visited, pos, dirIdx)) {
+            return true;
+        }
+
+        markVisited(visited, pos, dirIdx);
+
         if (!isNextObstacle(pos, dir)) {
             mark(pos);
             pos = move(pos, dir);
@@ -59,6 +97,8 @@ void patrol(std::vector<std::string> &map, std::pair<TNumber, TNumber> pos, TNum
             dir = nextDirection();
         }
     }
+
+    return false;
 }
 
 int main(int argc, char *argv[]) {
@@ -79,8 +119,6 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-
-
     std::string line;
     std::vector<std::string> map;
     std:pair<TNumber, TNumber> startPos{0,0};
@@ -100,8 +138,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-
-    patrol(map, startPos, 0);
+    TVisited visitedX;
+    patrol(map, visitedX, startPos, 0);
 
     TNumber steps = 0;
     for (auto line : map) {
@@ -109,4 +147,24 @@ int main(int argc, char *argv[]) {
     }
 
     cout << "Number of positions " << steps << endl;
+
+    TNumber nbCycles = 0;
+    // Part 2: put an obstacle somewhere in the previous path ...
+    for (auto posX : visitedX) {
+        auto pos = posFromKey(posX.first);
+        if (pos == startPos) {
+            // ... but not in the first position
+            continue;
+        }
+
+        map[pos.first][pos.second] = kOBSTACLE;
+        TVisited visitedY;
+        nbCycles += patrol(map, visitedY, startPos, 0);
+
+        // Remove the obstacle, e.g. put back the 'X' or the '.'
+        map[pos.first][pos.second] = '.';
+    }
+
+    cout << "Number of possible obstacle positions " << nbCycles << endl;
+
 }
