@@ -16,35 +16,51 @@ const TNumber kConcatenate  = 2;
 
 TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators, TNumber nbAllowedOperators) {
 
-    TNumber s = numbers[1];
-    TNumber idx = 2;
+    TNumber s = numbers[0];
+    TNumber idx = numbers.size() - 1;
+    assert(numbers.size() == nbOperators + 2);
+    // Go backwards: fail faster:
     for (int i=0; i<nbOperators; i++) {
+        // Extract the operator
         TNumber op = operators % nbAllowedOperators;
         operators /= nbAllowedOperators;
 
+        assert(numbers[idx] != 0);
         switch (op) {
             case kADD:
-                s += numbers[idx++];
+                s -= numbers[idx];
                 break;
             case kMultiply:
-                s *= numbers[idx++];
-                break;
+                // Check if a multiplication would do it
+                if (s % numbers[idx] == 0) {
+                    s /= numbers[idx];
+                    break;
+                }
+                return 0;
             case kConcatenate:
                 {
+                    // Check last digits of s. Would a concatenation do it?
                     auto n = numbers[idx];
                     while (n > 0) {
-                        s *= 10;
-                        n /= 10;
+                        if ( n % 10 == s % 10) {
+                            s /= 10;
+                            n /= 10;
+                        } else {
+                            break;
+                        }
                     }
-                    s += numbers[idx++];
+                    if (n != 0)
+                        return 0;
                 }
                 break;
             default:
                 break;
         }
+        
+        idx--;
     }
 
-    return s;
+    return (numbers[1] == s) ? numbers[0] : 0;
 }
 
 
@@ -88,6 +104,7 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    clock_t tStart = clock();
 
     std::string line;
     TNumber sum = 0;
@@ -99,6 +116,8 @@ int main(int argc, char *argv[]) {
             sumConcatenation += checkEquation(numbers, true);
         }
     }
+
+    cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
   
     cout << "Sum is " << sum << endl;
     cout << "Sum with Concatenation is " << sumConcatenation << endl;
