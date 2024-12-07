@@ -10,10 +10,10 @@
 using namespace std;
 
 
-const TNumber kADD = 0x0;
-const TNumber kMultiply = 0x1;
-const TNumber kConcatenate = 0x2;
-const TNumber kNone = 0x3;
+const TNumber kADD          = 0b00;
+const TNumber kMultiply     = 0b01;
+const TNumber kConcatenate  = 0b10;
+const TNumber kNone         = 0b11;
 
 TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators) {
 
@@ -69,7 +69,7 @@ TNumber calculate2(const std::vector<TNumber> &numbers, TNumber operators, TNumb
 }
 
 
-TNumber checkEquation(const std::vector<TNumber> &numbers) {
+TNumber checkEquation(const std::vector<TNumber> &numbers, bool isConcatenationAllowed) {
 
     TNumber sum = numbers[0];
     if (numbers.size() == 2) {
@@ -78,10 +78,14 @@ TNumber checkEquation(const std::vector<TNumber> &numbers) {
     assert(numbers.size() > 2);
 
     TNumber nOperators = numbers.size() - 2;
-    TNumber nCombinations = 1 << (nOperators << 1);
+    TNumber nCombinations = 1 << (nOperators << isConcatenationAllowed);
 
     for (TNumber i = 0; i<nCombinations; ++i) {
-        if (sum == calculate2(numbers, i, nOperators)) {
+        const TNumber result = isConcatenationAllowed
+                                    ? calculate2(numbers, i, nOperators)
+                                    : calculate(numbers, i, nOperators);
+
+        if (sum == result) {
             return sum;
         }
     }
@@ -110,12 +114,15 @@ int main(int argc, char *argv[]) {
 
     std::string line;
     TNumber sum = 0;
+    TNumber sumConcatenation = 0;
     while(getline(listFile, line)) {
         if (!line.empty()) {
             const auto numbers = allNumbers(line);
-            sum += checkEquation(numbers);
+            sum += checkEquation(numbers, false);
+            sumConcatenation += checkEquation(numbers, true);
         }
     }
   
     cout << "Sum is " << sum << endl;
+    cout << "Sum with Concatenation is " << sumConcatenation << endl;
 }
