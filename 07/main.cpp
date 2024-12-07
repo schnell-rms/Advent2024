@@ -14,76 +14,48 @@ const TNumber kADD          = 0;
 const TNumber kMultiply     = 1;
 const TNumber kConcatenate  = 2;
 
-TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators, TNumber nbAllowedOperators) {
+bool isCalculationOK(const std::vector<TNumber> &numbers, TNumber targetSum, bool isConcatenationAllowed, TNumber idx) {
 
-    TNumber s = numbers[0];
-    TNumber idx = numbers.size() - 1;
-    assert(numbers.size() == nbOperators + 2);
-    // Go backwards: fail faster:
-    for (int i=0; i<nbOperators; i++) {
-        // Extract the operator
-        TNumber op = operators % nbAllowedOperators;
-        operators /= nbAllowedOperators;
-
-        assert(numbers[idx] != 0);
-        switch (op) {
-            case kADD:
-                s -= numbers[idx];
-                break;
-            case kMultiply:
-                // Check if a multiplication would do it
-                if (s % numbers[idx] == 0) {
-                    s /= numbers[idx];
-                    break;
-                }
-                return 0;
-            case kConcatenate:
-                {
-                    // Check last digits of s. Would a concatenation do it?
-                    auto n = numbers[idx];
-                    while (n > 0) {
-                        if ( n % 10 == s % 10) {
-                            s /= 10;
-                            n /= 10;
-                        } else {
-                            break;
-                        }
-                    }
-                    if (n != 0)
-                        return 0;
-                }
-                break;
-            default:
-                break;
-        }
-        
-        idx--;
+    if (idx == 1) {
+        return targetSum == numbers[1];
     }
 
-    return (numbers[1] == s) ? numbers[0] : 0;
+    // Go backwards: fail faster. Check all operators
+    assert(numbers[idx] != 0);
+
+    // Multiplication first
+    if (targetSum % numbers[idx] == 0) {
+        if (isCalculationOK(numbers, targetSum / numbers[idx], isConcatenationAllowed, idx - 1))
+            return true;
+    }
+
+    if (isConcatenationAllowed) {
+        auto s = targetSum;
+        // Check last digits of s. Would a concatenation do it?
+        auto n = numbers[idx];
+        while (n > 0) {
+            if ( n % 10 == s % 10) {
+                s /= 10;
+                n /= 10;
+            } else {
+                break;
+            }
+        }
+
+        if ((n == 0) && (isCalculationOK(numbers, s, isConcatenationAllowed, idx - 1))) {
+            return true;
+        }
+    }
+
+    // Addition last:
+    return isCalculationOK(numbers, targetSum - numbers[idx], isConcatenationAllowed, idx - 1);
 }
 
 
 TNumber checkEquation(const std::vector<TNumber> &numbers, bool isConcatenationAllowed) {
-
-    TNumber sum = numbers[0];
-    if (numbers.size() == 2) {
-        return numbers[0] == numbers[1];
-    }
-    assert(numbers.size() > 2);
-
-    TNumber nOperators = numbers.size() - 2;
-    TNumber nAllowedOperations = 2 + isConcatenationAllowed;
-    TNumber nCombinations = std::pow(nAllowedOperations, nOperators);
-
-    for (TNumber i = 0; i<nCombinations; ++i) {
-        const TNumber result = calculate(numbers, i, nOperators, nAllowedOperations);
-        if (sum == result) {
-            return sum;
-        }
-    }
-
-    return 0;
+    return isCalculationOK(numbers, numbers[0], isConcatenationAllowed, numbers.size() - 1)
+            ? numbers[0]
+            : 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -112,6 +84,8 @@ int main(int argc, char *argv[]) {
     while(getline(listFile, line)) {
         if (!line.empty()) {
             const auto numbers = allNumbers(line);
+            assert(numbers.size() > 2);
+
             sum += checkEquation(numbers, false);
             sumConcatenation += checkEquation(numbers, true);
         }
