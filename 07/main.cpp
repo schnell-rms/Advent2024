@@ -10,36 +10,17 @@
 using namespace std;
 
 
-const TNumber kADD          = 0b00;
-const TNumber kMultiply     = 0b01;
-const TNumber kConcatenate  = 0b10;
-const TNumber kNone         = 0b11;
+const TNumber kADD          = 0;
+const TNumber kMultiply     = 1;
+const TNumber kConcatenate  = 2;
 
-TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators) {
-
-    TNumber s = numbers[1];
-    TNumber idx = 2;
-    for (int i=0; i<nbOperators; i++) {
-        auto op = operators & 0x1;
-        operators >>= 1;
-
-        if (kADD == op) {
-            s += numbers[idx++];
-        } else {
-            s *= numbers[idx++];
-        }
-    }
-
-    return s;
-}
-
-TNumber calculate2(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators) {
+TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators, TNumber nbAllowedOperators) {
 
     TNumber s = numbers[1];
     TNumber idx = 2;
     for (int i=0; i<nbOperators; i++) {
-        TNumber op = operators & 0x3;
-        operators >>= 2;
+        TNumber op = operators % nbAllowedOperators;
+        operators /= nbAllowedOperators;
 
         switch (op) {
             case kADD:
@@ -58,8 +39,6 @@ TNumber calculate2(const std::vector<TNumber> &numbers, TNumber operators, TNumb
                     s += numbers[idx++];
                 }
                 break;
-            case kNone:
-                return 0;
             default:
                 break;
         }
@@ -78,13 +57,11 @@ TNumber checkEquation(const std::vector<TNumber> &numbers, bool isConcatenationA
     assert(numbers.size() > 2);
 
     TNumber nOperators = numbers.size() - 2;
-    TNumber nCombinations = 1 << (nOperators << isConcatenationAllowed);
+    TNumber nAllowedOperations = 2 + isConcatenationAllowed;
+    TNumber nCombinations = std::pow(nAllowedOperations, nOperators);
 
     for (TNumber i = 0; i<nCombinations; ++i) {
-        const TNumber result = isConcatenationAllowed
-                                    ? calculate2(numbers, i, nOperators)
-                                    : calculate(numbers, i, nOperators);
-
+        const TNumber result = calculate(numbers, i, nOperators, nAllowedOperations);
         if (sum == result) {
             return sum;
         }
