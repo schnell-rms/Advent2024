@@ -12,6 +12,8 @@ using namespace std;
 
 const TNumber kADD = 0x0;
 const TNumber kMultiply = 0x1;
+const TNumber kConcatenate = 0x2;
+const TNumber kNone = 0x3;
 
 TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators) {
 
@@ -29,7 +31,41 @@ TNumber calculate(const std::vector<TNumber> &numbers, TNumber operators, TNumbe
     }
 
     return s;
+}
 
+TNumber calculate2(const std::vector<TNumber> &numbers, TNumber operators, TNumber nbOperators) {
+
+    TNumber s = numbers[1];
+    TNumber idx = 2;
+    for (int i=0; i<nbOperators; i++) {
+        TNumber op = operators & 0x3;
+        operators >>= 2;
+
+        switch (op) {
+            case kADD:
+                s += numbers[idx++];
+                break;
+            case kMultiply:
+                s *= numbers[idx++];
+                break;
+            case kConcatenate:
+                {
+                    auto n = numbers[idx];
+                    while (n > 0) {
+                        s *= 10;
+                        n /= 10;
+                    }
+                    s += numbers[idx++];
+                }
+                break;
+            case kNone:
+                return 0;
+            default:
+                break;
+        }
+    }
+
+    return s;
 }
 
 
@@ -42,10 +78,10 @@ TNumber checkEquation(const std::vector<TNumber> &numbers) {
     assert(numbers.size() > 2);
 
     TNumber nOperators = numbers.size() - 2;
-    TNumber nCombinations = 1 << nOperators;
+    TNumber nCombinations = 1 << (nOperators << 1);
 
     for (TNumber i = 0; i<nCombinations; ++i) {
-        if (sum == calculate(numbers, i, nOperators)) {
+        if (sum == calculate2(numbers, i, nOperators)) {
             return sum;
         }
     }
