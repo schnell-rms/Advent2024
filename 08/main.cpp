@@ -23,7 +23,8 @@ void addAntinode(int row, int col, int maxRow, int maxCol, TAntinodesPos &antino
 
 void getAntenas(const std::string &line, TAntenas &antenas, int row) {
     for (int j = 0; j<line.size(); j++) {
-        if (line[j] != '.') {
+        // By specs , should check line[j] to be alha numeric, not different then '.'
+        if ((line[j] != '.') && (line[j] != '#')) {
             antenas[line[j]].push_back(std::make_pair(row, j));
         }
     }
@@ -67,6 +68,7 @@ int main(int argc, char *argv[]) {
     // Find antinodes:
     // for each frequency:
     TAntinodesPos anti;
+    TAntinodesPos harmonics;
     for (auto antena : antenas) {
         auto &positions = antena.second;
         for (auto i = 0; i<positions.size(); ++i) {
@@ -75,11 +77,28 @@ int main(int argc, char *argv[]) {
                 const int dCol = positions[j].second - positions[i].second;
                 addAntinode(positions[i].first - dRow, positions[i].second - dCol, maxRow, maxCol, anti);
                 addAntinode(positions[j].first + dRow, positions[j].second + dCol, maxRow, maxCol, anti);
+
+                // Harmonics: by the current implementation each antena positions will added multiple times
+                // (i.e. once for each other antena)
+                for (int posRow = positions[i].first, posCol = positions[i].second;
+                     (posRow >= 0) && (posRow < maxRow) && (posCol >= 0) && (posCol < maxCol);
+                     posRow -= dRow, posCol -= dCol) {
+
+                    addAntinode(posRow, posCol, maxRow, maxCol, harmonics);
+                }
+
+                for (int posRow = positions[j].first, posCol = positions[j].second;
+                     (posRow >= 0) && (posRow < maxRow) && (posCol >= 0) && (posCol < maxCol);
+                     posRow += dRow, posCol += dCol) {
+
+                    addAntinode(posRow, posCol, maxRow, maxCol, harmonics);
+                }
             }
         }
     }
 
     cout << "Nb antinodes is " << anti.size() << endl;
+    cout << "Nb harmonics is " << harmonics.size() << endl;
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl; 
 }
