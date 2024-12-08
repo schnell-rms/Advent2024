@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include <utils.h>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -73,13 +74,19 @@ int main(int argc, char *argv[]) {
         auto &positions = antena.second;
         for (auto i = 0; i<positions.size(); ++i) {
             for (auto j = i + 1; j<positions.size(); ++j) {
-                const int dRow = positions[j].first  - positions[i].first;
-                const int dCol = positions[j].second - positions[i].second;
+                int dRow = positions[j].first  - positions[i].first;
+                int dCol = positions[j].second - positions[i].second;
                 addAntinode(positions[i].first - dRow, positions[i].second - dCol, maxRow, maxCol, anti);
                 addAntinode(positions[j].first + dRow, positions[j].second + dCol, maxRow, maxCol, anti);
 
                 // Harmonics: by the current implementation each antena positions will added multiple times
                 // (i.e. once for each other antena)
+
+                // Set the steps:
+                const auto gcdivisor = std::gcd(dRow, dCol);//Btw, when when is 0, it gives the other
+                dRow /= gcdivisor;
+                dCol /= gcdivisor;
+
                 for (int posRow = positions[i].first, posCol = positions[i].second;
                      (posRow >= 0) && (posRow < maxRow) && (posCol >= 0) && (posCol < maxCol);
                      posRow -= dRow, posCol -= dCol) {
