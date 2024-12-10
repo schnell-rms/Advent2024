@@ -8,7 +8,7 @@
 
 using namespace std;
 
-using TCoordinates = std::unordered_set<TNumber>;
+using TCoordinates = std::unordered_map<TNumber, TNumber>;
 
 TNumber key(TNumber i, TNumber j) {
     return (i<<16) | j;
@@ -16,7 +16,6 @@ TNumber key(TNumber i, TNumber j) {
 
 void countPaths(const std::vector<std::string> &map, TNumber i, TNumber j, char target, TCoordinates &peaks)
 {
-    // TODO: mark visited positions, to not visit them again....
     if ((i<0) || (j<0) || (i>=map.size()) || (j>map[i].size()) ||
          (map[i][j] != target)
        ) {
@@ -24,7 +23,7 @@ void countPaths(const std::vector<std::string> &map, TNumber i, TNumber j, char 
     }
 
     if (map[i][j] == '9') {
-        peaks.insert(key(i,j));
+        peaks[key(i,j)] += 1;
         return;
     }
 
@@ -63,6 +62,7 @@ int main(int argc, char *argv[]) {
     }
 
     TNumber sum = 0;
+    TNumber sumRatings = 0;
 
     for (auto i=0; i<map.size(); ++i) {
         for (auto j=0; j<map[0].size(); ++j) {        
@@ -70,11 +70,15 @@ int main(int argc, char *argv[]) {
                 TCoordinates peaks;
                 countPaths(map, i, j, '0', peaks);
                 sum += peaks.size();
+                for (auto p:peaks) {
+                    sumRatings += p.second;
+                }
             }
         }
     }
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
   
-    cout << "Sum is " << sum << endl;
+    cout << "First is " << sum << endl;
+    cout << "Second is " << sumRatings << endl;
 }
