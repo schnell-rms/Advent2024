@@ -1,12 +1,19 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <cstddef>
+#include <unordered_map>
 
 #include <utils.h>
 #include <string>
 
 using namespace std;
+
+
+using THistory = std::unordered_map<TNumber, TNumber>;
+
+TNumber key(TNumber n, TNumber nbSteps) {
+    return (n << 7) | nbSteps;
+}
 
 std::pair<TNumber, TNumber> splitNumber(TNumber n) {
     auto s = std::to_string(n);
@@ -21,27 +28,34 @@ std::pair<TNumber, TNumber> splitNumber(TNumber n) {
     return std::make_pair(std::stoi(s), std::stoi(s2));
 }
 
-std::vector<TNumber> expandOne(TNumber n) {
+TNumber count(TNumber n, TNumber nbSteps, THistory &history) {
 
-    if (n == 0) return { 1 };
+    if (nbSteps == 0) return 1;
 
-    auto p = splitNumber(n);
-    if (p.first != 0) return { p.first, p.second };
-
-    return { n * 2024 };
-}
-
-
-std::vector<TNumber> expand(std::vector<TNumber> numbers) {
-
-    std::vector<TNumber> ret;
-    for (auto n : numbers) {
-        auto e = expandOne(n);
-        ret.insert(ret.end(), e.begin(), e.end());
+    // Search in history first
+    auto it = history.find(key(n,nbSteps));
+    if (it != history.end()) {
+        return it->second;
     }
+
+    // Not found in history
+    TNumber ret;
+    if (n == 0) {
+        ret = count(1, nbSteps - 1, history);
+    } else {
+        auto p = splitNumber(n);
+        if (p.first != 0) {
+            ret =   count(p.first , nbSteps -1, history) +
+                    count(p.second, nbSteps -1, history);
+        } else {
+            ret = count(n * 2024, nbSteps - 1, history);
+        }
+    }
+
+    // Put in history
+    history[key(n, nbSteps)] = ret;
     return ret;
 }
-
 
 int main(int argc, char *argv[]) {
 
@@ -68,17 +82,19 @@ int main(int argc, char *argv[]) {
     std::vector<TNumber> numbers = allNumbers(line);
 
 
-    //Brute force:
-    // printVector(numbers);
-    const int nbSteps = 25;
-    for (auto i=0; i<nbSteps; i++) {
-        auto e = expand(numbers);
-        numbers.swap(e);
-        // printVector(numbers);
+    THistory history;
+    TNumber counterFirst = 0;
+    for (TNumber n : numbers) {
+        counterFirst += count(n, 25, history);
     }
 
-    cout << "First star " << numbers.size() << endl;
+    TNumber counterSecond = 0;
+    for (TNumber n : numbers) {
+        counterSecond += count(n, 75, history);
+    }
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
-  
+
+    cout << "First star " << counterFirst << endl;
+    cout << "Second star " << counterSecond << endl;
 }
