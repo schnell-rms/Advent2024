@@ -58,21 +58,33 @@ int main(int argc, char *argv[]) {
     std::vector<std::string> nodeNames;
     TNumber nbPrizes = 0;
     TNumber totalCost = 0;
+
+    TNumber nbPrizes2nd = 0;
+    TNumber totalCost2nd = 0;
     while(getline(listFile, line)) {
         if (!line.empty()) {
             const auto deltaA = allNumbers(line);
             getline(listFile, line);
             const auto deltaB = allNumbers(line);
             getline(listFile, line);
-            const auto posPrize = allNumbers(line);
+            auto posPrize = allNumbers(line);
 
+            // First star:
             const auto cost = costToPrize(deltaA, deltaB, posPrize);
             nbPrizes += cost != 0;
             totalCost += cost;
+
+            // Second star:
+            posPrize[0] += 10000000000000;
+            posPrize[1] += 10000000000000;
+            const auto cost2nd = costToPrize(deltaA, deltaB, posPrize);
+            nbPrizes2nd += cost2nd != 0;
+            totalCost2nd += cost2nd;
         }
     }
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
   
-    cout << "Nb prizes is " << nbPrizes << " at cost " << totalCost << endl;
+    cout << "1st: Nb prizes is " << nbPrizes << " at cost " << totalCost << endl;
+    cout << "2nd: Nb prizes is " << nbPrizes2nd << " at cost " << totalCost2nd << endl;
 }
