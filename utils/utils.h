@@ -44,9 +44,16 @@ std::vector<std::string> allAlphaStrings(const std::string& line) {
 };
 
 template<class T>
-int printCollection(const T &whatever, bool endLine = true, int width = 3) {
+int printCollection(const T &whatever, bool endLine = true, int width = 3, int newLineAfter = -1) {
+    int c = 0;
+    const bool breakLine = newLineAfter >= 0;
     for(auto t:whatever) {
         std::cout << std::setw(width) << t << " ";
+        if (breakLine) {
+            c++;
+            (c == newLineAfter) && std::cout << "\n";
+            c %= newLineAfter;
+        }
     }
     !whatever.empty() && std::cout << '\b';
     endLine && std::cout << std::endl;
@@ -56,6 +63,11 @@ int printCollection(const T &whatever, bool endLine = true, int width = 3) {
 template<class T>
 int printVector(const std::vector<T> &vec, bool endLine = true) {
     return printCollection(vec, endLine);
+}
+
+template<class T>
+int printVectorAsMatrix(const std::vector<T> &vec, bool endLine = true, int width = 3, int nbColumns = -1) {
+    return printCollection(vec, endLine, width, nbColumns);
 }
 
 template<class T>
