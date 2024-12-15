@@ -13,36 +13,41 @@ using TMap = std::vector<std::string>;
 
 
 const char kROBOT = '@';
-const char kBOX = '0';
+const char kSMALL_BOX = 'O';
 const char kWALL = '#';
+const char kFREE = '.';
+
+const char kBIG_BOX_LEFT = '[';
+const char kBIG_BOX_RIGHT = ']';
 
 // Safe to use size_t becuase of the borders on the first row and column...
 bool isFree(size_t &cX, size_t &cY, 
             TMap &silo,
             TNumber dx,
-            TNumber dy) {
+            TNumber dy,
+            bool reallyMove) {
 
     bool isAllowed = false;
     switch (silo[cY + dy][cX + dx])
     {
-    case '.':
+    case kFREE:
         isAllowed = true;
         break;
-    case 'O': {
+    case kSMALL_BOX: {
         size_t nx = cX + dx;
         size_t ny = cY + dy;
-        isAllowed = isFree(nx, ny, silo, dx, dy);
+        isAllowed = isFree(nx, ny, silo, dx, dy, reallyMove);
     }
     default:
         break;
     }
 
-    if (isAllowed) {
+    if (isAllowed && reallyMove) {
         const char me = silo[cY][cX];
-        silo[cY][cX] = '.';
+        silo[cY][cX] = kFREE;
         cX += dx;
         cY += dy;
-        assert(silo[cY][cX] = '.');
+        assert(silo[cY][cX] = kFREE);
         silo[cY][cX] = me;
     }
 
@@ -51,7 +56,8 @@ bool isFree(size_t &cX, size_t &cY,
 
 void move(  size_t &cX, size_t &cY, //current position
             TMap &silo,
-            char dir) {
+            char dir,
+            std::function<bool (size_t&, size_t&, TMap&, TNumber, TNumber, bool)> checkAndMoveBoxes) {
 
     TNumber dx = 0, dy = 0;
     switch (dir) {
@@ -71,7 +77,102 @@ void move(  size_t &cX, size_t &cY, //current position
             assert(false);
     }
 
-    isFree(cX, cY, silo, dx, dy);
+    // Horizontal moves can be made in one go without previous check:
+    const bool reallyMove = (dy == 0) || checkAndMoveBoxes(cX, cY, silo, dx, dy, false);
+    if (reallyMove)
+        checkAndMoveBoxes(cX, cY, silo, dx, dy, true);    
+}
+
+bool isBigFree( size_t &cX, size_t &cY,
+                TMap &silo,
+                TNumber dx,
+                TNumber dy,
+                bool reallyMove) {
+
+    const bool isRobot = silo[cY][cX] == '@';
+    const bool isHorizontalMove = dy == 0;
+    const bool isBoxVerticalMovement = !isRobot && !isHorizontalMove;
+    // When moving a box verically, always work with its left side:
+    assert(!isBoxVerticalMovement || (kBIG_BOX_LEFT == silo[cY][cX]));
+    bool isAllowed = false;
+    if (isRobot || isHorizontalMove) {
+        // Only the current position move (i.e. not the right one too)
+        // Move the robot: care for vertical moves
+        // OR move box horizontally: old approach, one by one
+        // Next to move:
+        size_t nx = cX + dx;
+        size_t ny = cY + dy;
+        switch (silo[ny][nx])
+        {
+        case kFREE:
+            isAllowed = true;
+            break;
+        case kBIG_BOX_RIGHT:
+            if (!isHorizontalMove) {
+                // Robot: Vertical move: take the LEFT side of the box:
+                nx -= 1;
+            }
+            [[fallthrough]];
+        case kBIG_BOX_LEFT: {
+            // already on the LEFT side of the box.
+            isAllowed = isBigFree(nx, ny, silo, dx, dy, reallyMove);
+        }
+        case kWALL:
+            break;
+        default:
+            assert(false);
+            break;
+        }
+    } else {
+        // Move a box verically.
+        assert(silo[cY][cX] == kBIG_BOX_LEFT);
+        assert(silo[cY][cX+1] == kBIG_BOX_RIGHT);
+        const bool isBlocked = (kWALL == silo[cY + dy][cX + dx]) || (kWALL == silo[cY + dy][cX + dx + 1]);
+        const bool isAllFree = (kFREE == silo[cY + dy][cX + dx]) && (kFREE == silo[cY + dy][cX + dx + 1]);
+        if (isAllFree) {
+            isAllowed = true;
+        } else if (!isBlocked) {
+            // One or two BIG boxes in direction. Could be: [], ][, ]. or .[
+            size_t nx = cX + dx;
+            size_t ny = cY + dy;
+
+            if (silo[cY + dy][cX + dx] == kBIG_BOX_LEFT) {
+                isAllowed = isBigFree(nx, ny, silo, dx, dy, reallyMove);//[]
+            } else if (silo[cY + dy][cX + dx] == kBIG_BOX_RIGHT) {
+                nx--;
+                isAllowed = isBigFree(nx, ny, silo, dx, dy, reallyMove);//](.[)?
+            } else {
+                assert(kFREE == silo[cY + dy][cX + dx]);
+                isAllowed = true;
+            }
+
+            if (isAllowed && silo[cY + dy][cX + dx + 1] == kBIG_BOX_LEFT) {
+                nx = cX + dx + 1;
+                ny = cY + dy;
+                isAllowed = isBigFree(nx, ny, silo, dx, dy, reallyMove);//(.])?[
+            }
+        }
+    }
+
+    if (isAllowed && reallyMove) {
+        const char me = silo[cY][cX];
+        silo[cY][cX] = '.';
+        if (isBoxVerticalMovement) {
+            assert(me == '[');
+            assert(silo[cY][cX+1] == ']');
+            silo[cY][cX+1] = '.';
+        }
+        cX += dx;
+        cY += dy;
+        assert(silo[cY][cX] = '.');
+        silo[cY][cX] = me;
+        if (isBoxVerticalMovement) {
+            assert(silo[cY][cX+1] = '.');
+            silo[cY][cX+1] = ']';
+        }
+    }
+
+    return isAllowed;
 }
 
 int main(int argc, char *argv[]) {
@@ -92,13 +193,12 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
-    clock_t tStart = clock();
-
-    std::string line;
-    TMap silo;
+    std::string line, bigLine;
+    TMap silo, bigSilo;
     bool isMapReading = true;
     std::string moves;
     size_t robotX, robotY;
+    size_t robotBigX, robotBigY;
     size_t n = 0;
     while(getline(listFile, line)) {
         if (!line.empty()) {
@@ -108,6 +208,33 @@ int main(int argc, char *argv[]) {
                     robotX = m;
                     robotY = n;
                 }
+                bigLine.reserve(line.size() * 2);
+                for (char c : line) {
+                    switch (c) {
+                        case kWALL:
+                            bigLine += kWALL;
+                            bigLine += kWALL;
+                            break;
+                        case kSMALL_BOX:
+                            bigLine += kBIG_BOX_LEFT;
+                            bigLine += kBIG_BOX_RIGHT;
+                            break;
+                        case kFREE:
+                            bigLine += kFREE;
+                            bigLine += kFREE;
+                            break;
+                        case kROBOT:
+                            robotBigX = m*2;
+                            robotBigY = n;
+                            bigLine += kROBOT;
+                            bigLine += kFREE;
+                            break;
+                        default:
+                            assert(false);
+                    }
+                }
+
+                bigSilo.push_back(std::move(bigLine));
                 silo.push_back(std::move(line));
             } else {
                 moves += line;
@@ -118,21 +245,19 @@ int main(int argc, char *argv[]) {
         n++;
     }
 
-    cout << "Initial:" << endl;
+// First star:
+    cout << "Initial FIRST:" << endl;
     printMatrix(silo, true, 1);
 
-
+    const clock_t tFirstStart = clock();
     for (char dir : moves) {
-        move(robotX, robotY, silo, dir);
-        // cout << "Move " << dir << endl;
-        // printMatrix(silo, true, 1);
+        move(robotX, robotY, silo, dir, isFree);
+        gIS_DEBUG && cout << "Move " << dir << endl;
+        gIS_DEBUG && printMatrix(silo, true, 1);
     }
 
-    cout << "Final:" << endl;
-    printMatrix(silo, true, 1);
-
     size_t sum = 0;
-    const auto m = silo[0].size();
+    auto m = silo[0].size();
     for (size_t i = 0; i<silo.size(); ++i) {
         for (size_t j = 0; j<m; ++j) {
             if ('O' == silo[i][j])
@@ -140,7 +265,38 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
+    const clock_t tFirstEnd = clock();
+
+    cout << "Final FIRST:" << endl;
+    printMatrix(silo, true, 1);
+
+// Second star:
+    cout << "Initial SECOND:" << endl;
+    printMatrix(bigSilo, true, 1);
+
+    const clock_t tSecondStart = clock();
+    for (char dir : moves) {
+        move(robotBigX, robotBigY, bigSilo, dir, isBigFree);
+        gIS_DEBUG && cout << "Move " << dir << endl;
+        gIS_DEBUG && printMatrix(bigSilo, true, 1);
+    }
+
+    size_t sum2nd = 0;
+    m = bigSilo[0].size();
+    for (size_t i = 0; i<bigSilo.size(); ++i) {
+        for (size_t j = 0; j<m; ++j) {
+            if ('[' == bigSilo[i][j])
+                sum2nd += i*100 + j;
+        }
+    }
+    const clock_t tSecondEnd = clock();
+
+    cout << "Final SECOND:" << endl;
+    printMatrix(bigSilo, true, 1);
+
+    cout << "First star's taken time: " << double(tFirstEnd - tFirstStart)/CLOCKS_PER_SEC << endl;
     cout << "First sum: " << sum << endl;
 
+    cout << "Second star's taken time: " << double(tSecondEnd - tSecondStart)/CLOCKS_PER_SEC << endl;
+    cout << "Second sum: " << sum2nd << endl;
 }
