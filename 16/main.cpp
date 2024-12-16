@@ -50,16 +50,18 @@ auto orientationCost=[](TNumber currentOrientation, TNumber goToDirection) {
 };
 
 
-TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX, TNumber endY, EDIRECTION startDir) {
+std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX, TNumber endY, EDIRECTION startDir) {
 
     const TNumber nbCols = map[0].size();
 
+    const TNumber kNO_COST_YET = -1;
+
     std::priority_queue<SPos> q;
     std::vector<std::vector<TNumber>> cost(4);
-    cost[kEAST]  = std::vector<TNumber>(map.size() * nbCols, -1);
-    cost[kNORTH] = std::vector<TNumber>(map.size() * nbCols, -1);
-    cost[kSOUTH] = std::vector<TNumber>(map.size() * nbCols, -1);
-    cost[kWEST]  = std::vector<TNumber>(map.size() * nbCols, -1);
+    cost[kEAST]  = std::vector<TNumber>(map.size() * nbCols, kNO_COST_YET);
+    cost[kNORTH] = std::vector<TNumber>(map.size() * nbCols, kNO_COST_YET);
+    cost[kSOUTH] = std::vector<TNumber>(map.size() * nbCols, kNO_COST_YET);
+    cost[kWEST]  = std::vector<TNumber>(map.size() * nbCols, kNO_COST_YET);
 
     q.push(SPos(0,startX, startY, startDir));
     cost[startDir][startY * nbCols + startX] = 0;
@@ -77,22 +79,31 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
         const TNumber newCost = pos.cost + extraCost;
 
         const TNumber costIdx = y * nbCols + x;
-        if ((cost[direction][costIdx] == -1) || (newCost < cost[direction][costIdx])) {
+        if ((cost[direction][costIdx] == kNO_COST_YET) || (newCost < cost[direction][costIdx])) {
             cost[direction][costIdx] = newCost;
-            // printVectorAsMatrix(cost[direction], true, 3, nbCols);
-            // waitForKey();
+            // gIS_DEBUG && printVectorAsMatrix(cost[direction], true, 3, nbCols);
+            // gIS_DEBUG && waitForKey();
             q.push(SPos(newCost, x, y, direction));
         }
     };
 
-    printVectorAsMatrix(cost[kEAST], true, 3, nbCols);
+    gIS_DEBUG && printVectorAsMatrix(cost[kEAST], true, 3, static_cast<int>(nbCols));
+
+    TNumber bestCost = -1;
+
+    std::vector<SPos> cheapestArrivals;
 
     while (!q.empty()) {
         const SPos pos = q.top();
 
         if ((pos.x == endX) && (pos.y == endY))  {
-            printVectorAsMatrix(cost[pos.orientation], true, 3, nbCols);
-            return pos.cost;
+            // printVectorAsMatrix(cost[pos.orientation], true, 3, nbCols);
+            if (bestCost == -1) {
+                bestCost = pos.cost;
+            }
+            if (bestCost < pos.cost)
+                break;
+            cheapestArrivals.push_back(pos);
         }
 
         q.pop();
@@ -104,8 +115,71 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
     }
 
     // printVector(cost);  
+    // Extract the routes
+    std::vector<TNumber> routes(map.size() * nbCols, 0);
 
-    return -1;
+    std::function<void (TNumber, TNumber, EDIRECTION, TNumber)> markRoute
+         = [&](TNumber x, TNumber y, EDIRECTION orientation, TNumber currentCost) {
+        if (    (x < 0) || (x >= map.size()) ||
+                (y < 0) || (y >= map[0].size()) ||
+                (map[x][y] == kWALL)) {
+            return;
+        }
+
+        const TNumber costIdx = y * nbCols + x;
+        if ((cost[orientation][costIdx] == kNO_COST_YET) || (cost[orientation][costIdx] != currentCost)) {
+            // We were not here. That cost was not propagated.
+            return;
+        }
+
+        routes[costIdx] = 1;
+        TNumber dx = 0, dy = 0;
+
+        // Where were we coming from to x,y? Let's go there:
+        switch (orientation) {
+            case kEAST:
+                dx = -1;
+                break;
+            case kWEST:
+                dx = +1;
+                break;
+            case kSOUTH:
+                dy = -1;
+                break;
+            case kNORTH:
+                dy = +1;
+                break;
+            default:
+                assert(false);
+        }
+
+        // What orientation were you haivng in that position? Try them all:
+        const auto px = x + dx;
+        const auto py = y + dy;
+
+        markRoute(px, py, kEAST, currentCost - 1 - orientationCost(kEAST, orientation));
+        markRoute(px, py, kWEST, currentCost - 1 - orientationCost(kWEST, orientation));
+        markRoute(px, py, kSOUTH, currentCost - 1 - orientationCost(kSOUTH, orientation));
+        markRoute(px, py, kNORTH, currentCost - 1 - orientationCost(kNORTH, orientation));
+    };
+
+    for (auto &pos : cheapestArrivals) {
+        assert(endX = pos.x);
+        assert(endY = pos.y);
+        assert(bestCost == pos.cost);
+        markRoute(endX, endY, pos.orientation, bestCost);
+    }
+
+    gIS_DEBUG && cout << "Routes" << endl;
+    gIS_DEBUG && printVectorAsMatrix(routes, true, 3, nbCols);
+
+    // Count positions on route:
+    TNumber counter = 0;
+    for (auto v : routes) {
+        counter += v;
+    }
+
+    return make_pair(bestCost, counter);
 }
 
 int main(int argc, char *argv[]) {
@@ -154,8 +228,9 @@ int main(int argc, char *argv[]) {
 
 
     const clock_t tStart = clock();
-    const TNumber minCost = findCheapestPath(map, startX, startY, endX, endY, kEAST);
+    const auto result = findCheapestPath(map, startX, startY, endX, endY, kEAST);
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
-    cout << "First star min cost " << minCost << endl;
+    cout << "First star min cost " << result.first << endl;
+    cout << "Second star number of positions " << result.second << endl;
 }
