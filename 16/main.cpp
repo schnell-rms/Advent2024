@@ -71,7 +71,7 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
         const TNumber y = pos.y + dy;
         if (    (x < 0) || (x >= map.size()) || 
                 (y < 0) || (y >= map[0].size()) ||
-                (map[x][y] == kWALL)) {
+                (map[y][x] == kWALL)) {
             return;
         }
 
@@ -81,13 +81,11 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
         const TNumber costIdx = y * nbCols + x;
         if ((cost[direction][costIdx] == kNO_COST_YET) || (newCost < cost[direction][costIdx])) {
             cost[direction][costIdx] = newCost;
-            // gIS_DEBUG && printVectorAsMatrix(cost[direction], true, 3, nbCols);
+            // gIS_DEBUG && printVectorAsMatrix(cost[direction], true, 3, static_cast<int>(nbCols));
             // gIS_DEBUG && waitForKey();
             q.push(SPos(newCost, x, y, direction));
         }
     };
-
-    gIS_DEBUG && printVectorAsMatrix(cost[kEAST], true, 3, static_cast<int>(nbCols));
 
     TNumber bestCost = -1;
 
@@ -97,7 +95,7 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
         const SPos pos = q.top();
 
         if ((pos.x == endX) && (pos.y == endY))  {
-            // printVectorAsMatrix(cost[pos.orientation], true, 3, nbCols);
+            // gIS_DEBUG && printVectorAsMatrix(cost[pos.orientation], true, 3, static_cast<int>(nbCols));
             if (bestCost == -1) {
                 bestCost = pos.cost;
             }
@@ -114,7 +112,18 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
         visit(pos, -1,  0, kWEST);
     }
 
-    // printVector(cost);  
+    gIS_DEBUG && cout << "EAST costs" << endl;
+    gIS_DEBUG &&printVectorAsMatrix(cost[kEAST], true, 3, static_cast<int>(nbCols));
+
+    gIS_DEBUG &&cout << "WEST costs" << endl;
+    gIS_DEBUG &&printVectorAsMatrix(cost[kWEST], true, 3, static_cast<int>(nbCols));
+
+    gIS_DEBUG &&cout << "SOUTH costs" << endl;
+    gIS_DEBUG &&printVectorAsMatrix(cost[kSOUTH], true, 3, static_cast<int>(nbCols));
+
+    gIS_DEBUG &&cout << "NORTH costs" << endl;
+    gIS_DEBUG &&printVectorAsMatrix(cost[kNORTH], true, 3, static_cast<int>(nbCols));
+
     // Extract the routes
     std::vector<TNumber> routes(map.size() * nbCols, 0);
 
@@ -122,7 +131,7 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
          = [&](TNumber x, TNumber y, EDIRECTION orientation, TNumber currentCost) {
         if (    (x < 0) || (x >= map.size()) ||
                 (y < 0) || (y >= map[0].size()) ||
-                (map[x][y] == kWALL)) {
+                (map[y][x] == kWALL)) {
             return;
         }
 
@@ -226,6 +235,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    gIS_DEBUG && cout << "The map" << endl;
+    gIS_DEBUG && printMatrix(map);
 
     const clock_t tStart = clock();
     const auto result = findCheapestPath(map, startX, startY, endX, endY, kEAST);
