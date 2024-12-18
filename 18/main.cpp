@@ -31,7 +31,9 @@ struct SPos {
     
 };
 
-std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX, TNumber endY) {
+TNumber findCheapestPath( const TMap &map,
+                                TNumber startX, TNumber startY,
+                                TNumber endX, TNumber endY) {
 
     const TNumber kNO_COST_YET = -1;
 
@@ -55,27 +57,21 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
         const TNumber costIdx = y * kSIZE + x;
         if ((cost[costIdx] == kNO_COST_YET) || (newCost < cost[costIdx])) {
             cost[costIdx] = newCost;
-            // gIS_DEBUG && printVectorAsMatrix(cost, true, 3, static_cast<int>(kSIZE));
-            // gIS_DEBUG && waitForKey();
             q.push(SPos(newCost, x, y));
         }
     };
 
     TNumber bestCost = -1;
 
-    std::vector<SPos> cheapestArrivals;
-
     while (!q.empty()) {
         const SPos pos = q.top();
 
         if ((pos.x == endX) && (pos.y == endY))  {
-            // gIS_DEBUG && printVectorAsMatrix(cost, true, 3, static_cast<int>(kSIZE));
-            if ((bestCost == -1) || (bestCost > pos.cost)) {
+            if (bestCost == -1) {
                 bestCost = pos.cost;
             }
-            // if (bestCost < pos.cost)
-            //     break;
-            cheapestArrivals.push_back(pos);
+            if (bestCost < pos.cost)
+                break;
         }
 
         q.pop();
@@ -86,76 +82,7 @@ std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber 
         visit(pos, -1,  0);
     }
 
-    gIS_DEBUG && cout << "Costs" << endl;
-    gIS_DEBUG &&printVectorAsMatrix(cost, true, 3, static_cast<int>(kSIZE));
-
-return std::make_pair(bestCost,bestCost);
-
-    // // Extract the routes
-    // std::vector<TNumber> routes(kSIZE * kSIZE, 0);
-
-    // std::function<void (TNumber, TNumber, EDIRECTION, TNumber)> markRoute
-    //      = [&](TNumber x, TNumber y, EDIRECTION orientation, TNumber currentCost) {
-    //     if (    (x < 0) || (x >= kSIZE) ||
-    //             (y < 0) || (y >= kSIZE) ||
-    //             (map[y * kSIZE + x] == kCORRUPTED)) {
-    //         return;
-    //     }
-
-    //     const TNumber costIdx = y * kSIZE + x;
-    //     if ((cost[costIdx] == kNO_COST_YET) || (cost[costIdx] != currentCost)) {
-    //         // We were not here. That cost was not propagated.
-    //         return;
-    //     }
-
-    //     routes[costIdx] = 1;
-    //     TNumber dx = 0, dy = 0;
-
-    //     // Where were we coming from to x,y? Let's go there:
-    //     switch (orientation) {
-    //         case kEAST:
-    //             dx = -1;
-    //             break;
-    //         case kWEST:
-    //             dx = +1;
-    //             break;
-    //         case kSOUTH:
-    //             dy = -1;
-    //             break;
-    //         case kNORTH:
-    //             dy = +1;
-    //             break;
-    //         default:
-    //             assert(false);
-    //     }
-
-    //     // What orientation were you haivng in that position? Try them all:
-    //     const auto px = x + dx;
-    //     const auto py = y + dy;
-
-    //     markRoute(px, py, kEAST, currentCost - 1);
-    //     markRoute(px, py, kWEST, currentCost - 1);
-    //     markRoute(px, py, kSOUTH, currentCost - 1);
-    //     markRoute(px, py, kNORTH, currentCost - 1);
-    // };
-
-    // for (auto &pos : cheapestArrivals) {
-    //     assert(endX = pos.x);
-    //     assert(endY = pos.y);
-    //     assert(bestCost == pos.cost);
-    //     markRoute(endX, endY, pos.orientation, bestCost);
-    // }
-
-    // gIS_DEBUG && cout << "Routes" << endl;
-    // gIS_DEBUG && printVectorAsMatrix(routes, true, 3, kSIZE);
-
-    // // Count positions on route:
-    // TNumber counter = 0;
-    // for (auto v : routes) {
-    //     counter += v;
-    // }
-
-    // return make_pair(bestCost, counter);
+    return bestCost;
 }
 
 
@@ -195,10 +122,21 @@ int main(int argc, char *argv[]) {
         map[coords[i][0] + coords[i][1] * kSIZE] = kCORRUPTED;
     }
 
+    TNumber bestCost = findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1);
+    cout << "First star: best cost " << bestCost << endl;
 
-    auto r = findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1);
-    cout << r.first << endl;
+// SECOND:
+    TNumber i = nbBytes;
+    // TODO implement a binary search:
+    for (; (i<coords.size()); i++) {
+        map[coords[i][0] + coords[i][1] * kSIZE] = kCORRUPTED;
+
+        bestCost = findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1);
+        if (bestCost == -1) {
+            cout << "Second star: break at byte " << coords[i][0] << ',' << coords[i][1] << endl;
+            break;
+        }
+    }
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
-  
 }
