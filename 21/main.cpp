@@ -24,12 +24,10 @@ TKeyboard kDirectionalKeys = {
     {'<',{1,0}},{'v',{1,1}},{'>',{1,2}}
 };
 
+const TNumber kINFINITE = 1L << 50;
 
 struct SPath {
-    std::string path;
-    size_t complexity() {
-        return path.empty() ? (1u << 30) : path.length();
-    };
+    TNumber complexity = kINFINITE;
 };
 
 using TComplexity = std::unordered_map<int, SPath>;
@@ -108,34 +106,40 @@ SPath findTwoKeysComplexity(    TComplexity &complexities,
     if (level <= 0) {
         for (TMoves& moves : m ) {
             assert(!moves.empty());
-            int c = static_cast<int>(moves.size());
-            if (minPath.complexity() > c) {
-                minPath.path = moves;
+            size_t c = moves.size();
+            if (minPath.complexity > c) {
+                minPath.complexity = c;
             }
         }
     } else {
         for (TMoves& moves : m ) {
             SPath s;
+            s.complexity = 0;
             assert(!moves.empty());
             if (moves.size() == 1) {
-                s.path = moves;
+                s.complexity = 1;
             } else {
                 for (size_t i = 0; i<moves.size(); ++i) {
                     auto res = findTwoKeysComplexity(complexities,
                                                      kDirectionalKeys,
                                                      (i == 0) ? 'A' : moves[i-1], moves[i],
                                                      level-1);
-                    s.path += res.path;
+                    s.complexity += res.complexity;
                 }
             }
-            if (minPath.complexity() > s.path.length()) {
+            if (minPath.complexity > s.complexity) {
                 minPath = s;
             }
         }
     }
 
     assert(complexities.find(moveKey) == complexities.end());
-    assert(!minPath.path.empty());
+    if (minPath.complexity == kINFINITE) {
+        int k = 0;
+        k++;
+    }
+    assert(minPath.complexity > 0);
+    assert(minPath.complexity != kINFINITE);
     complexities[moveKey] = minPath;
     return minPath;
 }
@@ -165,14 +169,14 @@ size_t findComplexity(const TComplexity &complexities,
                       int intermediaryLevels) {
     needToPress = 'A' + needToPress;
 
-    int len = 0;
+    TNumber len = 0;
     for (size_t i=1; i< needToPress.size(); i++) {
         const auto moveKey = ckey(needToPress[i-1], needToPress[i], intermediaryLevels);
-        const auto localLen = complexities.at(moveKey);
-        len += localLen.path.size();
-        cout << localLen.path << "(" << needToPress[i-1] << needToPress[i] << ")" << " ... ";
+        const TNumber localLen = complexities.at(moveKey).complexity;
+//        len += localLen.path.size();
+//        cout << localLen.path << "(" << needToPress[i-1] << needToPress[i] << ")" << " ... ";
+        len += localLen;
     }
-    cout << " : " << len  << endl;
     return len * number;
 }
 
@@ -196,20 +200,23 @@ int main(int argc, char *argv[]) {
 
     clock_t tStart = clock();
     
-    const size_t intermediaryLevels = 2;
-    TComplexity complexities = findAllBasicComplexities(intermediaryLevels);
+    TComplexity complexities2 = findAllBasicComplexities(2);
+    TComplexity complexities25 = findAllBasicComplexities(25);
 
     std::string line;
-    size_t firstStar = 0;
+    TNumber firstStar = 0;
+    TNumber secondStar = 0;
     while(getline(listFile, line)) {
         if (!line.empty()) {
             auto n = allNumbers(line);
             cout << line << " n= " << n[0] <<endl;
             
-            firstStar  += findComplexity(complexities, line, n[0], intermediaryLevels);//n[0]);
+            firstStar  += findComplexity(complexities2, line, n[0], 2);
+            secondStar  += findComplexity(complexities25, line, n[0], 25);
         }
     }
 
     cout << "First star: " << firstStar << endl;
+    cout << "2nd star: " << secondStar << endl;
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
 }
