@@ -1,3 +1,4 @@
+#include <cassert>
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -23,73 +24,156 @@ TKeyboard kDirectionalKeys = {
     {'<',{1,0}},{'v',{1,1}},{'>',{1,2}}
 };
 
+
+struct SPath {
+    std::string path;
+    size_t complexity() {
+        return path.empty() ? (1u << 30) : path.length();
+    };
+};
+
+using TComplexity = std::unordered_map<int, SPath>;
+int ckey(char from, char to, int level) {
+    return (((from << 8) | to) << 16) | level;
+}
+
 using TMoves = std::string;
 
-TMoves moveToKey(const TKeyboard &keyboard,
-                 char from, char to) {
+std::vector<TMoves> moveToKey(  const TKeyboard &keyboard,
+                                char from, char to) {
     std::pair<int, int> fkey = keyboard.at(from);
     std::pair<int, int> tkey = keyboard.at(to);
 
     std::pair<int, int> spacekey = keyboard.at(' ');
 
-    TMoves moves;
+    std::vector<TMoves> allMoves;
     // ' ' irrelevant:
     const int dx = tkey.second - fkey.second;
     const int dy = tkey.first  - fkey.first;
 
-    bool isHorizontalSpaceOnFromRow = fkey.first == spacekey.first;
-    bool isHorizontalFirst = !isHorizontalSpaceOnFromRow;
+    const bool isSpaceOnHorizontalPath = (fkey.first == spacekey.first) && (tkey.second == spacekey.second);
 
-    if (isHorizontalFirst) {
+    if (!isSpaceOnHorizontalPath) {
+        TMoves hmoves;
         // horizontal:
         for (int x = 0; x < abs(dx); x++) {
-            moves.push_back(dx > 0 ? '>' : '<');
+            hmoves.push_back(dx > 0 ? '>' : '<');
         }
 
         // vertical:
         for (int y = 0; y < abs(dy); y++) {
-            moves.push_back(dy > 0 ? 'v' : '^');
+            hmoves.push_back(dy > 0 ? 'v' : '^');
         }
-    } else {
+        
+        hmoves += 'A';
+        allMoves.push_back(std::move(hmoves));
+    }
+
+    const bool isSpaceOnVerticalPath = (fkey.second == spacekey.second) && (tkey.first == spacekey.first);
+
+    if (!isSpaceOnVerticalPath) {
+        TMoves vmoves;
         // vertical:
         for (int y = 0; y < abs(dy); y++) {
-            moves.push_back(dy > 0 ? 'v' : '^');
+            vmoves.push_back(dy > 0 ? 'v' : '^');
         }
 
         // horizontal:
         for (int x = 0; x < abs(dx); x++) {
-            moves.push_back(dx > 0 ? '>' : '<');
+            vmoves.push_back(dx > 0 ? '>' : '<');
         }
+        
+        vmoves += 'A';
+        allMoves.push_back(std::move(vmoves));
     }   
 
-    return moves;
+    assert(!allMoves.empty());
+    return allMoves;
 }
 
-TMoves findCommands(const TKeyboard &keyboard, const std::string &needToPress) {
-
-    TMoves moves;
-    for (size_t i = 1; i<needToPress.size(); i++) {
-        moves.append(moveToKey(keyboard, needToPress[i-1], needToPress[i]));
-        moves += 'A';
+SPath findTwoKeysComplexity(    TComplexity &complexities,
+                                const TKeyboard &keys,
+                                char from, char to,
+                                int level)
+{
+    const auto moveKey = ckey(from, to, level);
+    auto it = complexities.find(moveKey);
+    if (it != complexities.end()) {
+        return it->second;
     }
-    return moves;
+
+    std::vector<TMoves> m = moveToKey(keys, from, to);
+    SPath minPath;
+
+    if (level <= 0) {
+        for (TMoves& moves : m ) {
+            assert(!moves.empty());
+            int c = static_cast<int>(moves.size());
+            if (minPath.complexity() > c) {
+                minPath.path = moves;
+            }
+        }
+    } else {
+        for (TMoves& moves : m ) {
+            SPath s;
+            assert(!moves.empty());
+            if (moves.size() == 1) {
+                s.path = moves;
+            } else {
+                for (size_t i = 0; i<moves.size(); ++i) {
+                    auto res = findTwoKeysComplexity(complexities,
+                                                     kDirectionalKeys,
+                                                     (i == 0) ? 'A' : moves[i-1], moves[i],
+                                                     level-1);
+                    s.path += res.path;
+                }
+            }
+            if (minPath.complexity() > s.path.length()) {
+                minPath = s;
+            }
+        }
+    }
+
+    assert(complexities.find(moveKey) == complexities.end());
+    assert(!minPath.path.empty());
+    complexities[moveKey] = minPath;
+    return minPath;
 }
 
-size_t findComplexity(std::string &numericCodes) {
-    numericCodes = 'A' + numericCodes;
-    TMoves mdir1 = findCommands(kNumericKeys, numericCodes);
+TComplexity findAllBasicComplexities(int intermediaryLevels){
 
-    mdir1 = 'A' + mdir1;
-    TMoves mdir2 = findCommands(kDirectionalKeys, mdir1);
-    
-    mdir2 = 'A' + mdir2;
-    TMoves mdir3 = findCommands(kDirectionalKeys, mdir2);
+    TComplexity allBasicComplexities;
+    for (auto from : kNumericKeys) {
+        if (from.first == ' ')
+            continue;
+        for (auto to : kNumericKeys) {
+            if (to.first == ' ')
+                continue;
 
-    numericCodes.erase(numericCodes.begin());
-    numericCodes.erase(numericCodes.end());
-    size_t complexity = mdir3.size() * std::stoi(numericCodes);
-    cout << complexity << endl;
-    return complexity;
+            findTwoKeysComplexity(allBasicComplexities,
+                                  kNumericKeys,
+                                  from.first, to.first,
+                                  intermediaryLevels);
+        }
+    }
+    return allBasicComplexities;
+}
+
+size_t findComplexity(const TComplexity &complexities,
+                      std::string &needToPress,
+                      TNumber number,
+                      int intermediaryLevels) {
+    needToPress = 'A' + needToPress;
+
+    int len = 0;
+    for (size_t i=1; i< needToPress.size(); i++) {
+        const auto moveKey = ckey(needToPress[i-1], needToPress[i], intermediaryLevels);
+        const auto localLen = complexities.at(moveKey);
+        len += localLen.path.size();
+        cout << localLen.path << "(" << needToPress[i-1] << needToPress[i] << ")" << " ... ";
+    }
+    cout << " : " << len  << endl;
+    return len * number;
 }
 
 int main(int argc, char *argv[]) {
@@ -111,16 +195,21 @@ int main(int argc, char *argv[]) {
     }
 
     clock_t tStart = clock();
+    
+    const size_t intermediaryLevels = 2;
+    TComplexity complexities = findAllBasicComplexities(intermediaryLevels);
 
     std::string line;
     size_t firstStar = 0;
     while(getline(listFile, line)) {
         if (!line.empty()) {
-            firstStar  += findComplexity(line);
+            auto n = allNumbers(line);
+            cout << line << " n= " << n[0] <<endl;
+            
+            firstStar  += findComplexity(complexities, line, n[0], intermediaryLevels);//n[0]);
         }
     }
 
     cout << "First star: " << firstStar << endl;
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
-  
 }
