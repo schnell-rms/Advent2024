@@ -32,7 +32,7 @@ struct SPos {
     
 };
 
-TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX, TNumber endY) {
+std::pair<TNumber, TNumber> findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX, TNumber endY) {
 
     const TNumber nbCols = map[0].size();
 
@@ -129,6 +129,7 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
         {0,2}, {0,-2}, {2,0}, {-2,0}, {-1,+1}, {-1,-1}, {+1,+1}, {+1,-1} 
     };
 
+// First star:
     TNumber counter = 0;
     for (auto pos : routes) {
         const TNumber costPos = cost[pos];
@@ -139,7 +140,28 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
         }
     }
 
-    return counter;
+
+// Second star:
+    TNumber counter2nd = 0;
+    for (auto posBefore : routes) {
+        for (auto posAfter : routes) {
+            if (cost[posAfter] < cost[posBefore]) {
+                continue;
+            }
+
+            const TNumber dx = abs(posAfter % nbCols - posBefore % nbCols);
+            const TNumber dy = abs(posAfter / nbCols - posBefore / nbCols);
+
+            TNumber cheat = abs(dx) + abs(dy);
+            if (cheat > 20) {
+                continue;
+            }
+
+            counter2nd += (cost[posAfter] - cost[posBefore] >= 100 + cheat);
+        }
+    }
+
+    return std::make_pair(counter, counter2nd);
 }
 
 int main(int argc, char *argv[]) {
@@ -191,5 +213,6 @@ int main(int argc, char *argv[]) {
     const auto result = findCheapestPath(map, startX, startY, endX, endY);
 
     cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
-    cout << "First star min cost " << result << endl;
+    cout << "First star " << result.first << endl;
+    cout << "Second star " << result.second << endl;
 }
