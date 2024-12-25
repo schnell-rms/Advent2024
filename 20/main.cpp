@@ -6,6 +6,7 @@
 
 #include <utils.h>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 
@@ -24,7 +25,7 @@ struct SPos {
 
     TNumber cost;
     TNumber x,y;
-    
+
     bool operator<(const SPos& other) const {
         return other.cost < cost;
     }
@@ -57,8 +58,6 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
         const TNumber costIdx = y * nbCols + x;
         if ((cost[costIdx] == kNO_COST_YET) || (newCost < cost[costIdx])) {
             cost[costIdx] = newCost;
-            // gIS_DEBUG && printVectorAsMatrix(cost, true, 3, static_cast<int>(nbCols));
-            // gIS_DEBUG && waitForKey();
             q.push(SPos(newCost, x, y));
         }
     };
@@ -71,7 +70,6 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
         const SPos pos = q.top();
 
         if ((pos.x == endX) && (pos.y == endY))  {
-            // gIS_DEBUG && printVectorAsMatrix(cost[pos.orientation], true, 3, static_cast<int>(nbCols));
             if (bestCost == -1) {
                 bestCost = pos.cost;
             }
@@ -89,9 +87,59 @@ TNumber findCheapestPath(TMap &map, TNumber startX, TNumber startY, TNumber endX
     }
 
     gIS_DEBUG && cout << "Costs" << endl;
-    gIS_DEBUG &&printVectorAsMatrix(cost, true, 3, static_cast<int>(nbCols));
+    gIS_DEBUG && printVectorAsMatrix(cost, true, 3, static_cast<int>(nbCols));
 
-    return bestCost;
+
+// Extract the route
+    std::unordered_set<TNumber> routes;//(map.size() * nbCols, 0);
+
+    std::function<void (TNumber, TNumber, TNumber)> markRoute
+         = [&](TNumber x, TNumber y, TNumber currentCost) {
+        if (    (x < 0) || (x >= map.size()) ||
+                (y < 0) || (y >= map[0].size()) ||
+                (map[y][x] == kWALL) //--> or pass through walls, let the cost check work
+                ) {
+            return;
+        }
+
+        const TNumber costIdx = y * nbCols + x;
+        if ((cost[costIdx] == kNO_COST_YET) || (cost[costIdx] != currentCost)) {
+            // We were not here. That cost was not propagated.
+            return;
+        }
+
+        // routes[costIdx] = 1;
+        routes.insert(costIdx);
+
+        markRoute(x - 1, y    , currentCost - 1);
+        markRoute(x + 1, y    , currentCost - 1);
+        markRoute(x    , y - 1, currentCost - 1);
+        markRoute(x    , y + 1, currentCost - 1);
+    };
+
+    for (auto &pos : cheapestArrivals) {
+        assert(endX = pos.x);
+        assert(endY = pos.y);
+        assert(bestCost == pos.cost);
+        markRoute(endX, endY, bestCost);
+    }
+
+    // Go along the fastes route and search for cheats:
+    std::vector<std::pair<TNumber, TNumber>> jumps = {
+        {0,2}, {0,-2}, {2,0}, {-2,0}, {-1,+1}, {-1,-1}, {+1,+1}, {+1,-1} 
+    };
+
+    TNumber counter = 0;
+    for (auto pos : routes) {
+        const TNumber costPos = cost[pos];
+        for (auto jump : jumps) {
+            const TNumber p = pos + jump.first + jump.second * nbCols;
+            const auto it = routes.find(p);
+            counter += ((routes.end() != it) && (costPos - cost[*it] >= 102));
+        }
+    }
+
+    return counter;
 }
 
 int main(int argc, char *argv[]) {
@@ -111,8 +159,6 @@ int main(int argc, char *argv[]) {
         std::cout << "Could not open input file" << std::endl;
         return EXIT_FAILURE;
     }
-
-
 
     std::string line;
     TMap map;
