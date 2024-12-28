@@ -10,6 +10,17 @@ bool gIS_DEBUG = false;
 
 using TNumber = int64_t;
 
+std::vector<std::string> allRegex(const std::string& line, const std::string &regexStr) {
+    std::smatch sm;
+    std::vector<std::string> ret;
+    std::string::const_iterator searchStart(line.cbegin() );
+    while (std::regex_search(searchStart, line.cend(), sm, std::regex(regexStr))) {
+        ret.push_back(sm[1]);
+        searchStart = sm.suffix().first;
+    }
+    return ret;
+};
+
 std::vector<TNumber> allNumbers(const std::string& line) {
     std::smatch sm;
     std::vector<TNumber> ret;

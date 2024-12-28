@@ -28,7 +28,6 @@ struct SPos {
     bool operator<(const SPos& other) const {
         return other.cost < cost;
     }
-    
 };
 
 TNumber findCheapestPath( const TMap &map,
@@ -124,19 +123,73 @@ int main(int argc, char *argv[]) {
 
     TNumber bestCost = findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1);
     cout << "First star: best cost " << bestCost << endl;
+    cout << "Time taken first: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << "\n" << endl;
 
 // SECOND:
-    TNumber i = nbBytes;
-    // TODO implement a binary search:
-    for (; (i<coords.size()); i++) {
-        map[coords[i][0] + coords[i][1] * kSIZE] = kCORRUPTED;
+    if (gIS_DEBUG) {
+        // Brute force: just try all bytes:
+        TNumber i = nbBytes;
+        clock_t tBruteForceStart = clock();
+        for (; (i<coords.size()); i++) {
+            map[coords[i][0] + coords[i][1] * kSIZE] = kCORRUPTED;
 
+            bestCost = findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1);
+            if (bestCost == -1) {
+                cout << "Second star: break at byte " << coords[i][0] << ',' << coords[i][1] << endl;
+                break;
+            }
+        }
+        cout << "Time taken brute force: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << "\n" << endl;
+    }
+
+    // Binary search:
+    auto prepareMap = [&](TNumber currentByteIdx, TNumber targetByteIdx) {
+        if (currentByteIdx < targetByteIdx) {
+            for (TNumber i = currentByteIdx; i < targetByteIdx; i++) {
+                map[coords[i][0] + coords[i][1] * kSIZE] = kCORRUPTED;
+            }
+        } else {
+            TNumber j =currentByteIdx;
+            assert(j==coords.size() || map[coords[j][0] + coords[j][1] * kSIZE] == kFREE);
+            for (TNumber i = currentByteIdx - 1; i >= targetByteIdx; i--) {
+                map[coords[i][0] + coords[i][1] * kSIZE] = kFREE;
+            }
+        }
+    };
+
+    TNumber lowByte = nbBytes;
+    TNumber highByte = coords.size() - 1;
+    // Revert the brute force map, in case it was run:
+    prepareMap(highByte, lowByte);
+
+    clock_t tBinarySearchStart = clock();
+    // Last not set idx:
+    TNumber lastSetIdx = lowByte;
+    while (lowByte <= highByte) {
+        TNumber midByte = lowByte + (highByte - lowByte) / 2;
+
+        prepareMap(lastSetIdx, midByte);
+        lastSetIdx = midByte;
+
+        // mid not set. All coorupted until and including mid-1
         bestCost = findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1);
         if (bestCost == -1) {
-            cout << "Second star: break at byte " << coords[i][0] << ',' << coords[i][1] << endl;
-            break;
+            if (midByte == 3030) {
+                int k = 0;
+            }
+            // Set midByte - 1 free:
+            prepareMap(midByte, midByte - 1);
+            if (-1 != findCheapestPath(map, 0, 0, kSIZE-1, kSIZE - 1)) {
+                cout << "Second star: break at byte " << coords[midByte-1][0] << ',' << coords[midByte-1][1] << endl;
+                break;
+            } else {
+                highByte = midByte - 1;
+            }
+            prepareMap(midByte - 1, midByte);
+        } else {
+            lowByte = midByte + 1;
         }
     }
 
-    cout << "Time taken: " << (double)(clock() - tStart)/CLOCKS_PER_SEC << endl;
+    cout << "Time taken binary search: " << (double)(clock() - tBinarySearchStart)/CLOCKS_PER_SEC << endl;
 }
