@@ -15,7 +15,7 @@ std::tuple<TNumber, TNumber> mulSum(const std::string& line) {
     std::smatch sm;
     std::vector<TNumber> ret;
     std::string::const_iterator searchStart(line.cbegin() );
-    while (std::regex_search(searchStart, line.cend(), sm, std::regex("mul\\((\\d|\\d{2}|\\d{3}),(\\d|\\d{2}|\\d{3})\\)|do\\(\\)|don't\\(\\)"))) {
+    while (std::regex_search(searchStart, line.cend(), sm, std::regex("mul\\((\\d{1,3}),(\\d{1,3})\\)|do\\(\\)|don't\\(\\)"))) {
 
         if (sm[0] == "do()") {
             isActive = true;
